@@ -1,4 +1,4 @@
-from random import randint
+from random import randint, choice
 
 import pygame
 
@@ -9,7 +9,7 @@ GRID_WIDTH = SCREEN_WIDTH // GRID_SIZE
 GRID_HEIGHT = SCREEN_HEIGHT // GRID_SIZE
 
 # Default position.
-DEFAULT_POSITION = (GRID_WIDTH // 2 * GRID_SIZE, GRID_HEIGHT // 2 * GRID_SIZE)
+DEFAULT_POSITION = (SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
 
 # Movement directions.
 UP = (0, -1)
@@ -43,48 +43,47 @@ clock = pygame.time.Clock()
 
 
 class GameObject:
-    """
-    This class is the base class for all game objects.
-    """
+    """This class is the base class for all game objects."""
 
     # Initialize the game object.
-    def __init__(self,
-                 position: tuple[int, int] = DEFAULT_POSITION,
-                 body_color: tuple[int, int, int] = BOARD_BACKGROUND_COLOR) -> None:
+    def __init__(
+            self,
+            position: tuple[int, int] = DEFAULT_POSITION,
+            body_color: tuple[int, int, int] = BOARD_BACKGROUND_COLOR
+    ) -> None:
         self.position = position
         self.body_color = body_color
 
-    # Draw the game object (this method should be overridden in subclasses).
     def draw(self) -> None:
+        """
+        Method for drawing the game object.
+        This method should be overridden in the derived classes.
+        """
         pass
 
 
 class Apple(GameObject):
-    """
-    This class represents an apple in the game.
-    """
+    """This class represents an apple in the game."""
 
     # Initialize the apple object.
     def __init__(self) -> None:
         position = self.randomize_position()
         super().__init__(position, body_color=APPLE_COLOR)
 
-    # Draw the apple.
     def draw(self) -> None:
+        """Method for drawing the apple."""
         rect = pygame.Rect(self.position, (GRID_SIZE, GRID_SIZE))
         pygame.draw.rect(screen, self.body_color, rect)
         pygame.draw.rect(screen, BORDER_COLOR, rect, 1)
 
-    # Randomize the apple position.
     def randomize_position(self) -> tuple[int, int]:
+        """Method for randomizing the position of the apple."""
         return (randint(0, GRID_WIDTH - 1) * GRID_SIZE,
                 randint(0, GRID_HEIGHT - 1) * GRID_SIZE)
 
 
 class Snake(GameObject):
-    """
-    This class represents a snake in the game.
-    """
+    """This class represents a snake in the game."""
 
     # Initialize the snake object.
     def __init__(self) -> None:
@@ -93,10 +92,11 @@ class Snake(GameObject):
         self.direction = RIGHT
         self.next_direction = None
         self.last = None
+        self.length = 1
 
-    # Draw the snake.
     def draw(self) -> None:
-        for position in self.positions:
+        """Method for drawing the snake."""
+        for position in self.positions[1:]:
             rect = (pygame.Rect(position, (GRID_SIZE, GRID_SIZE)))
             pygame.draw.rect(screen, self.body_color, rect)
             pygame.draw.rect(screen, BORDER_COLOR, rect, 1)
@@ -111,38 +111,42 @@ class Snake(GameObject):
             last_rect = pygame.Rect(self.last, (GRID_SIZE, GRID_SIZE))
             pygame.draw.rect(screen, BOARD_BACKGROUND_COLOR, last_rect)
 
-    # Move the snake.
     def move(self) -> None:
-        self.last = self.positions[-1]
+        """Method for moving the snake."""
         head_x, head_y = self.get_head_position()
-        new_position = ((head_x + self.direction[0] * GRID_SIZE) % SCREEN_WIDTH,
-                        (head_y + self.direction[1] * GRID_SIZE) % SCREEN_HEIGHT)
-        self.positions = [new_position] + self.positions[:-1]
+        new_position = (
+            (head_x + self.direction[0] * GRID_SIZE) % SCREEN_WIDTH,
+            (head_y + self.direction[1] * GRID_SIZE) % SCREEN_HEIGHT
+        )
+        self.positions.insert(0, new_position)
 
-    # Reset if the snake has collided with itself.
+        if new_position in self.positions[2:]:
+            self.reset()
+
+        if len(self.positions) > self.length:
+            self.last = self.positions[-1]
+            self.positions.pop()
+
     def reset(self) -> None:
+        """Method for resetting the snake."""
         self.positions = [DEFAULT_POSITION]
-        self.direction = RIGHT
+        self.direction = choice([UP, DOWN, LEFT, RIGHT])
         self.next_direction = None
+        self.length = 1
 
-    # Get the position of the snake's head.
     def get_head_position(self) -> tuple[int, int]:
+        """Method for getting the head position of the snake."""
         return self.positions[0]
 
-    # Update the direction of the snake.
     def update_direction(self) -> None:
+        """Method for updating the direction of the snake."""
         if self.next_direction:
             self.direction = self.next_direction
             self.next_direction = None
 
-    # Calculate the length based on the positions.
-    @property
-    def length(self) -> int:
-        return len(self.positions)
 
-
-# Handle the user's actions.
 def handle_keys(game_object: GameObject) -> None:
+    """Method for handling the keys."""
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             pygame.quit()
@@ -159,9 +163,7 @@ def handle_keys(game_object: GameObject) -> None:
 
 
 def main():
-    """
-    The main function of the game.
-    """
+    """The main function of the game."""
     # PyGame initialization.
     pygame.init()
 
@@ -172,6 +174,10 @@ def main():
     # Fill the screen with the board background color.
     screen.fill(BOARD_BACKGROUND_COLOR)
 
+    # Draw the game objects before starting the game loop.
+    apple.draw()
+    snake.draw()
+
     # The main game loop.
     while True:
         clock.tick(SPEED)
@@ -181,13 +187,7 @@ def main():
 
         # If the snake has eaten the apple.
         if snake.get_head_position() == apple.position:
-            snake.positions.append(snake.last)
-            apple.position = apple.randomize_position()
-
-        # If the snake has collided with itself.
-        if snake.get_head_position() in snake.positions[1:]:
-            clock.tick(2)
-            snake.reset()
+            snake.length += 1
             apple.position = apple.randomize_position()
 
         # Draw the game objects.
