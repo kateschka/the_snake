@@ -30,7 +30,7 @@ APPLE_COLOR = (255, 0, 0)
 SNAKE_COLOR = (0, 255, 0)
 
 # Snake speed.
-SPEED = 10
+SPEED = 5
 
 # Game screen initialization.
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), 0, 32)
@@ -55,11 +55,24 @@ class GameObject:
         self.position = position
         self.body_color = body_color
 
-    def draw(self, position: tuple[int, int]) -> None:
-        """Method for drawing the game object."""
+    @staticmethod
+    def draw_rectangle(
+            color: tuple[int, int, int],
+            position: tuple[int, int],
+            border_color: tuple[int, int, int] = BORDER_COLOR
+    ) -> None:
+        """Method for drawing a rectangle of given color and position."""
         rect = (pygame.Rect(position, (GRID_SIZE, GRID_SIZE)))
-        pygame.draw.rect(screen, self.body_color, rect)
-        pygame.draw.rect(screen, BORDER_COLOR, rect, 1)
+        pygame.draw.rect(screen, color, rect)
+        pygame.draw.rect(screen, border_color, rect, 1)
+
+    def draw(self, position: tuple[int, int]) -> None:
+        """
+        Method for drawing the game object.
+        This method should be overridden by subclasses.
+        Throws NotImplementedError if not overridden.
+        """
+        raise NotImplementedError
 
 
 class Apple(GameObject):
@@ -72,14 +85,23 @@ class Apple(GameObject):
 
     def draw(self) -> None:
         """Method for drawing the apple."""
-        super().draw(self.position)
+        GameObject.draw_rectangle(self.body_color, self.position)
 
-    def randomize_position(self) -> None:
+    def randomize_position(
+            self,
+            snake_positions: list[tuple[int, int]] = [SCREEN_CENTER]
+    ) -> None:
         """Method for randomizing the position of the apple."""
-        self.position = (
-            randint(0, GRID_WIDTH - 1) * GRID_SIZE,
-            randint(0, GRID_HEIGHT - 1) * GRID_SIZE
-        )
+        # Assigning a position that is occupied by the snake to the apple.
+        # This is done to make apple always change its position
+        # when this method is called.
+        self.position = snake_positions[0]
+
+        while self.position in snake_positions:
+            self.position = (
+                randint(0, GRID_WIDTH - 1) * GRID_SIZE,
+                randint(0, GRID_HEIGHT - 1) * GRID_SIZE
+            )
 
 
 class Snake(GameObject):
@@ -89,14 +111,22 @@ class Snake(GameObject):
     def __init__(self) -> None:
         super().__init__(body_color=SNAKE_COLOR)
         self.reset()
+        self.direction = RIGHT
+        self.last = None
 
     def draw(self) -> None:
         """Method for drawing the snake."""
-        for position in self.positions:
-            super().draw(position)
+        # Draw the snake's head.
+        GameObject.draw_rectangle(self.body_color, self.get_head_position())
+
+        # Erase the snake's tail.
+        if self.last:
+            GameObject.draw_rectangle(
+                BOARD_BACKGROUND_COLOR, self.last, BOARD_BACKGROUND_COLOR)
 
     def move(self) -> None:
         """Method for moving the snake."""
+        self.last = self.positions[-1]
         head_x, head_y = self.get_head_position()
         direction_x, direction_y = self.direction
         new_position = (
@@ -106,17 +136,12 @@ class Snake(GameObject):
         self.positions.insert(0, new_position)
 
         if len(self.positions) > self.length:
-            self.last = self.positions[-1]
             self.positions.pop()
 
     def reset(self) -> None:
         """Method for resetting the snake."""
         self.positions = [SCREEN_CENTER]
-        # Initially snake moves to the right.
-        if '__name__' == '__init__':
-            self.direction = RIGHT
-        else:
-            self.direction = choice([UP, DOWN, LEFT, RIGHT])
+        self.direction = choice([UP, DOWN, LEFT, RIGHT])
         self.next_direction = None
         self.last = None
         self.length = 1
@@ -157,8 +182,8 @@ def main():
     pygame.init()
 
     # Create an apple and a snake object.
-    apple = Apple()
     snake = Snake()
+    apple = Apple()
 
     # Fill the screen with the board background color.
     screen.fill(BOARD_BACKGROUND_COLOR)
@@ -177,18 +202,17 @@ def main():
         if snake.get_head_position() in snake.positions[2:]:
             clock.tick(2)
             snake.reset()
-            apple.randomize_position()
+            apple.randomize_position(snake.positions)
+            screen.fill(BOARD_BACKGROUND_COLOR)
             score = 0
 
         # If the snake has eaten the apple.
         if snake.get_head_position() == apple.position:
             snake.length += 1
             score += 1
-            while apple.position in snake.positions:
-                apple.randomize_position()
+            apple.randomize_position(snake.positions)
 
         # Draw the game objects.
-        screen.fill(BOARD_BACKGROUND_COLOR)
         apple.draw()
         snake.draw()
         pygame.display.set_caption(
