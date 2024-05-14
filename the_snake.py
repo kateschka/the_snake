@@ -79,25 +79,32 @@ class Apple(GameObject):
     """This class represents an apple in the game."""
 
     # Initialize the apple object.
-    def __init__(self) -> None:
-        self.randomize_position()
+    def __init__(
+            self,
+            occupied_positions: list[tuple[int, int]] = None
+    ) -> None:
+        self.randomize_position(occupied_positions)
         super().__init__(self.position, body_color=APPLE_COLOR)
 
     def draw(self) -> None:
         """Method for drawing the apple."""
-        GameObject.draw_rectangle(self.body_color, self.position)
+        self.draw_rectangle(self.body_color, self.position)
 
     def randomize_position(
             self,
-            snake_positions: list[tuple[int, int]] = [SCREEN_CENTER]
+            occupied_positions: list[tuple[int, int]] = None
     ) -> None:
-        """Method for randomizing the position of the apple."""
-        # Assigning a position that is occupied by the snake to the apple.
+        """
+        Method for randomizing the position of the apple.
+        Takes a list of occupied positions to avoid overlapping with them.
+        """
+        occupied_positions = occupied_positions or [SCREEN_CENTER]
+        # Assigning an occupied position to the apple.
         # This is done to make apple always change its position
         # when this method is called.
-        self.position = snake_positions[0]
+        self.position = occupied_positions[0]
 
-        while self.position in snake_positions:
+        while self.position in occupied_positions:
             self.position = (
                 randint(0, GRID_WIDTH - 1) * GRID_SIZE,
                 randint(0, GRID_HEIGHT - 1) * GRID_SIZE
@@ -117,11 +124,11 @@ class Snake(GameObject):
     def draw(self) -> None:
         """Method for drawing the snake."""
         # Draw the snake's head.
-        GameObject.draw_rectangle(self.body_color, self.get_head_position())
+        self.draw_rectangle(self.body_color, self.get_head_position())
 
         # Erase the snake's tail.
         if self.last:
-            GameObject.draw_rectangle(
+            self.draw_rectangle(
                 BOARD_BACKGROUND_COLOR, self.last, BOARD_BACKGROUND_COLOR)
 
     def move(self) -> None:
@@ -183,7 +190,7 @@ def main():
 
     # Create an apple and a snake object.
     snake = Snake()
-    apple = Apple()
+    apple = Apple(occupied_positions=snake.positions)
 
     # Fill the screen with the board background color.
     screen.fill(BOARD_BACKGROUND_COLOR)
